@@ -1,0 +1,283 @@
+@XmlRootElement(name = "rss")
+@XmlAccessorType(XmlAccessType.FIELD)
+public class Rss {
+
+    private Channel channel;
+
+    public Channel getChannel() {
+        return channel;
+    }
+
+    public void setChannel(Channel channel) {
+        this.channel = channel;
+    }
+
+}
+
+_________________________________________________________________________
+
+@XmlAccessorType(XmlAccessType.FIELD)
+public class Channel {
+
+    private String title;
+    private String description;
+    private String link;
+    private String generator;
+    private String lastBuildDate;
+    private String language;
+    private List<String> category;
+    private List<Item> item;
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public String getLink() {
+        return link;
+    }
+
+    public void setLink(String link) {
+        this.link = link;
+    }
+
+    public String getGenerator() {
+        return generator;
+    }
+
+    public void setGenerator(String generator) {
+        this.generator = generator;
+    }
+
+    public String getLastBuildDate() {
+        return lastBuildDate;
+    }
+
+    public void setLastBuildDate(String lastBuildDate) {
+        this.lastBuildDate = lastBuildDate;
+    }
+
+    public String getLanguage() {
+        return language;
+    }
+
+    public void setLanguage(String language) {
+        this.language = language;
+    }
+
+    public List<CategoryEnum> getCategory() {
+        return CategoryEnum.fromTypes(category);
+    }
+
+    public void setCategory(List<String> category) {
+        this.category = category;
+    }
+
+    public List<Item> getItem() {
+        return item;
+    }
+
+    public void setItem(List<Item> item) {
+        this.item = item;
+    }
+
+}
+
+_________________________________________________________________________
+
+@XmlAccessorType(XmlAccessType.FIELD)
+public class Item {
+
+    @XmlElement(name = "title")
+    private String title;
+
+    @XmlElement(name = "description")
+    private String description;
+
+    @XmlElement(name = "link")
+    private String link;
+
+    @XmlElement(name = "guid")
+    private String guid;
+
+    @XmlElement(name = "category")
+    private String category;
+
+    @XmlElement(name = "pubDate")
+    private String pubDate;
+
+    public Item() {
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public String getLink() {
+        return link;
+    }
+
+    public void setLink(String link) {
+        this.link = link;
+    }
+
+    public String getGuid() {
+        return guid;
+    }
+
+    public void setGuid(String guid) {
+        this.guid = guid;
+    }
+
+    public CategoryEnum getCategory() {
+        return CategoryEnum.fromType(category);
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
+    public String getPubDate() {
+        return pubDate;
+    }
+
+    public void setPubDate(String pubDate) {
+        this.pubDate = pubDate;
+    }
+
+}
+
+_________________________________________________________________________
+
+public enum CategoryEnum {
+
+    ANNOUNCEMENT("announcement"),
+    SECURITY("security"),
+    INCIDENT("incident"),
+    RELEASE_NOTE("release_note");
+
+    private String type;
+
+    private CategoryEnum(String type) {
+        this.type = type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public static List<CategoryEnum> fromTypes(List<String> types) {
+        return types.stream()
+                .map(CategoryEnum::fromType)
+                .collect(Collectors.toList());
+    }
+
+    public static CategoryEnum fromType(String type) {
+        for (CategoryEnum category : CategoryEnum.values()) {
+            if (category.type.equals(type)) {
+                return category;
+            }
+        }
+        throw new IllegalArgumentException("Invalid type: " + type);
+    }
+
+}
+
+
+_________________________________________________________________________
+
+@Path("/feed")
+public class RssFeedService {
+
+    @RestClient
+    @Inject
+    RssFeedRestCliente restCliente;
+
+    @GET
+    public void name() throws JAXBException {
+        JAXBContext jaxbContext = JAXBContext.newInstance(Rss.class);
+        Unmarshaller unmarshaller = jaxbContext.createUnmarshaller();
+
+        StringReader reader = new StringReader(restCliente.getFeedRss());
+        Rss rss = (Rss) unmarshaller.unmarshal(reader);
+
+        for (Item item : rss.getChannel().getItem()) {
+            if (item.getCategory() == CategoryEnum.INCIDENT) {
+                String outageStart = extractValueFromDescription(item.getDescription(), "Outage Start");
+                String outageEnd = extractValueFromDescription(item.getDescription(), "Outage End");
+                String service = extractValueFromDescription2(item.getDescription(), "SERVICES/COMPONENTS AFFECTED");
+                String[] services = service.replaceAll("<br />", "").split("-");
+
+                 // Converte os valores de Outage Start e Outage End em LocalDateTime
+                 DateTimeFormatter formatter = DateTimeFormatter.ofPattern("EEE MMM dd yyyy HH:mm:ss 'GMT'Z");
+                 LocalDateTime outageStartTime = LocalDateTime.parse(outageStart, formatter);
+                 LocalDateTime outageEndTime = LocalDateTime.parse(outageEnd, formatter);
+ 
+                 // Calcula a duração do tempo de indisponibilidade
+                 Duration outageDuration = Duration.between(outageStartTime, outageEndTime);
+                 
+                System.out.println("Serviço: " + service);
+                System.out.println("Serviço lista: ");
+                for (String i : services) {
+                    if(!i.isEmpty()){
+                        System.out.println(i);
+                    }
+                }
+                System.out.println("Serviço lista: ");
+                System.out.println("Outage Start: " + outageStart);
+                System.out.println("Outage End: " + outageEnd);
+                System.out.println("Duration: " + outageDuration);
+                System.out.println("Duration: " + outageDuration.toHours());
+                System.out.println("Duration: " + outageDuration.toMinutesPart());
+            }
+            
+        }
+
+    }
+
+    private String extractValueFromDescription(String description, String key) {
+        Pattern pattern = Pattern.compile(key + ": (.*?) <br />");
+        Matcher matcher = pattern.matcher(description);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return null;
+    }
+
+    private String extractValueFromDescription2(String description, String key) {
+        Pattern pattern = Pattern.compile(key + ":(.*?)(?=IMPACT:)");
+        Matcher matcher = pattern.matcher(description);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return null;
+    }
+
+}
